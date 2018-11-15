@@ -3,67 +3,71 @@ open FSharp.Data
 open System.IO
 
 type OldProj = XmlProvider<"../sample-old-proj.csproj">
-type NewProj = XmlProvider<"../sample-new-proj.csproj">
+type Vs2017Proj = XmlProvider<"../sample-new-proj.csproj">
 type Packages = XmlProvider<"../sample-packages.config">
 
 [<EntryPoint>]
 let main argv =
 
-    let packages content =
+    let packages content =            
         
         Packages.Parse(content).Packages
-        |> Seq.map (fun x -> NewProj.PackageReference(x.Id, x.Version))
+        |> Seq.map (fun x -> Vs2017Proj.PackageReference(x.Id, x.Version))
         |> Seq.toArray
-        |> fun x -> NewProj.ItemGroup(x, [||], [||])
+        |> fun x -> Vs2017Proj.ItemGroup(x, [||], [||])
 
     let projectReference content =
         
-        OldProj.Parse(content).ItemGroups
-        |> Seq.filter (fun x -> x.ProjectReferences.Length > 0)
-        |> Seq.map (fun x -> x.ProjectReferences)
-        |> Seq.concat
-        |> Seq.map (fun x -> NewProj.ProjectReference(x.Include))
-        |> Seq.toArray
-        |> fun x -> NewProj.ItemGroup([||], x, [||])
+        let projRefs =
+            OldProj.Parse(content).ItemGroups
+            |> Seq.filter (fun x -> x.ProjectReferences.Length > 0)
+            |> Seq.map (fun x -> x.ProjectReferences)
+            |> Seq.concat
+            |> Seq.map (fun x -> Vs2017Proj.ProjectReference(x.Include))
+            |> Seq.toArray
+        match projRefs.Length with
+        | 0 -> None
+        | _ -> Some <| Vs2017Proj.ItemGroup([||], projRefs, [||])
     
     let upgrade projectFile =
-        let dir = FileInfo(projectFile).Directory.FullName
 
+        printfn "Upgrading %s" (FileInfo(projectFile).Name)
+
+        let getContent file = 
+            match File.Exists(file) with
+            | true -> File.ReadAllText file |> Some
+            | false -> None
+
+        let dir = FileInfo(projectFile).Directory.FullName
         let packageFile = dir + "/packages.config"
 
-        if File.Exists(packageFile) then
+        let itemGroups =
+            [| 
+                packageFile |> getContent |> Option.map packages
+                projectFile |> getContent |> Option.bind projectReference
+            |] 
+            |> Array.filter Option.isSome 
+            |> Array.map Option.get
 
+        Vs2017Proj.Project(
+            "Microsoft.NET.Sdk", 
+            Vs2017Proj.PropertyGroup("net462"), 
+            itemGroups)
+        |> fun x -> File.WriteAllText(projectFile, x.ToString(), Text.Encoding.UTF8)
 
-            let readAllText filePath = File.ReadAllText filePath
+        let deleteIfExists file = if File.Exists(file) then File.Delete(file)
 
-            NewProj.Project(
-                "Microsoft.NET.Sdk", 
-                NewProj.PropertyGroup("net462"), 
-                [| 
-                    packageFile |> readAllText |> packages
-                    projectFile |> readAllText |> projectReference
-                |]
-                )
-            |> fun x -> File.WriteAllText(projectFile, x.ToString(), Text.Encoding.UTF8)
+        Directory.Delete(dir + "/Properties", true)
 
+        [
+            packageFile
+            dir + "/app.Debug.config"
+            dir + "/app.Release.config"
+            dir + "/app.config"
+        ] |> List.iter deleteIfExists
 
-            Directory.Delete(dir + "/Properties", true)
-            File.Delete(packageFile)
-            if File.Exists(dir + "app.Debug.config") then File.Delete(dir + "app.Debug.config")
-            if File.Exists(dir + "app.Release.config") then File.Delete(dir + "app.Release.config")
-            if File.Exists(dir + "app.config") then File.Delete(dir + "app.config")
-
-        else printfn "%s has already been processed" projectFile
-
-    let pauseUpgrade projectFile =
-        printfn "Started processing %s file" projectFile
-        upgrade projectFile
-        printfn "Completed processing %s file" projectFile
-        printfn "<enter> to process next"
-        //Console.ReadLine() |> ignore
-
-    Directory.GetFiles("C:\Code\Engine\Services", "*.csproj", EnumerationOptions(RecurseSubdirectories = true))
-    |> Seq.iter pauseUpgrade
+    Directory.GetFiles("C:\Code\CreditClear\Engine\Endpoints\Console", "*.csproj", EnumerationOptions(RecurseSubdirectories = true))
+    |> Seq.iter upgrade
     
     printfn "Done!"
     Console.ReadLine() |> ignore

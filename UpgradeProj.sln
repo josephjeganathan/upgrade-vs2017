@@ -3,7 +3,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28010.2048
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "UpgradeProj", "UpgradeProj\UpgradeProj.fsproj", "{F38F6D5D-86E2-4479-B557-CA71FEBF75D4}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "UpgradeProj", "UpgradeProj\UpgradeProj.fsproj", "{F38F6D5D-86E2-4479-B557-CA71FEBF75D4}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2B6DE2EE-0B2B-4C06-81A0-6D4CBA7B11BF}"
+	ProjectSection(SolutionItems) = preProject
+		sample-new-proj.csproj = sample-new-proj.csproj
+		sample-old-proj.csproj = sample-old-proj.csproj
+		sample-packages.config = sample-packages.config
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
